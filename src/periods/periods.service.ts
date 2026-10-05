@@ -63,6 +63,9 @@ export class PeriodsService {
       if (period.status === PeriodStatus.Closed) {
         throw new BadRequestException('Un periodo cerrado no se puede reabrir');
       }
+      if (period.status === PeriodStatus.Open && dto.status === PeriodStatus.Planned) {
+        throw new BadRequestException('Un periodo abierto no puede volver a planificado');
+      }
       if (dto.status === PeriodStatus.Closed) {
         throw new BadRequestException('Para cerrar un periodo usa POST /periods/:id/close');
       }
@@ -115,22 +118,40 @@ export class PeriodsService {
     }
 
     const session = await this.connection.startSession();
+    let cancelledPending = 0;
     try {
       await session.withTransaction(async () => {
-        if (check.pendingEnrollments > 0) {
+        // Relee el estado y las matriculas dentro de la transaccion: una matricula puede
+        // haberse creado despues de closeCheck.
+        const current = await this.model.findOneAndUpdate(
+          { _id: id, status: PeriodStatus.Open },
+          { $inc: { __v: 1 } },
+          { new: true, session },
+        );
+        if (!current) throw new ConflictException('El periodo ya no esta abierto');
+
+        const pending = await this.enrollmentModel.find({ period: current._id, status: EnrollmentStatus.Active }).select('group').session(session).exec();
+        cancelledPending = pending.length;
+        if (cancelledPending > 0 && !cancelPending) {
+          throw new ConflictException('Hay matriculas activas sin finalizar');
+        }
+
+        if (cancelledPending > 0) {
           await this.enrollmentModel.updateMany(
-            { period: period._id, status: EnrollmentStatus.Active },
+            { period: current._id, status: EnrollmentStatus.Active },
             { $set: { status: EnrollmentStatus.Cancelled } },
             { session },
           );
           // Los grupos quedan con el conteo real de matriculas vigentes
-          for (const g of check.groups) {
-            const enrolled = await this.enrollmentModel.countDocuments({ group: g.group, status: { $ne: EnrollmentStatus.Cancelled } }, { session });
-            await this.groupModel.updateOne({ _id: g.group }, { $set: { enrolled } }, { session });
+          const groupIds = [...new Set(pending.map((enrollment) => String(enrollment.group)))];
+          for (const groupId of groupIds) {
+            const enrolled = await this.enrollmentModel.countDocuments({ group: groupId, status: { $ne: EnrollmentStatus.Cancelled } }, { session });
+            await this.groupModel.updateOne({ _id: groupId }, { $set: { enrolled } }, { session });
           }
         }
-        period.status = PeriodStatus.Closed;
-        await period.save({ session });
+        current.status = PeriodStatus.Closed;
+        await current.save({ session });
+        period.status = current.status;
       });
     } finally {
       await session.endSession();
@@ -143,7 +164,7 @@ export class PeriodsService {
     return {
       period: { id: period.id, code: period.code, status: period.status },
       closed: true,
-      cancelledPending: check.pendingEnrollments,
+        cancelledPending,
       enrollmentsByStatus: Object.fromEntries(byStatus.map((x) => [x._id, x.total])),
     };
   }

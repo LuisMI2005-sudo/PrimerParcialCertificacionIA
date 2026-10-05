@@ -25,3 +25,5 @@ export class Period {
 }
 
 export const PeriodSchema = SchemaFactory.createForClass(Period);
+// La regla de un unico periodo abierto debe mantenerse incluso ante escrituras concurrentes.
+PeriodSchema.index({ status: 1 }, { unique: true, partialFilterExpression: { status: PeriodStatus.Open } });

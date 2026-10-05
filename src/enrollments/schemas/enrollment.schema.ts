@@ -39,5 +39,10 @@ export class Enrollment {
 
 export const EnrollmentSchema = SchemaFactory.createForClass(Enrollment);
 EnrollmentSchema.index({ student: 1, group: 1 }, { unique: true });
+// Dos solicitudes concurrentes no pueden dejar al estudiante cursando la misma materia dos veces.
+EnrollmentSchema.index(
+  { student: 1, subject: 1, period: 1 },
+  { unique: true, partialFilterExpression: { status: EnrollmentStatus.Active } },
+);
 EnrollmentSchema.index({ student: 1, subject: 1, status: 1 });
 EnrollmentSchema.index({ student: 1, period: 1, status: 1 });

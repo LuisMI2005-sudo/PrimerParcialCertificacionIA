@@ -5,6 +5,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, PopulateOptions } from 'mongoose';
 import { Paginated, paginate } from '../common/dto/pagination-query.dto';
 import { ClassroomsService } from '../classrooms/classrooms.service';
+import { Enrollment, EnrollmentDocument, EnrollmentStatus } from '../enrollments/schemas/enrollment.schema';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/schemas/notification.schema';
 import { PeriodsService } from '../periods/periods.service';
@@ -28,6 +29,7 @@ const overlaps = slotsOverlap;
 export class GroupsService {
   constructor(
     @InjectModel(Group.name) private readonly model: Model<GroupDocument>,
+    @InjectModel(Enrollment.name) private readonly enrollmentModel: Model<EnrollmentDocument>,
     private readonly subjectsService: SubjectsService,
     private readonly teachersService: TeachersService,
     private readonly periodsService: PeriodsService,
@@ -47,16 +49,23 @@ export class GroupsService {
     }
 
     this.assertValidSchedule(dto.schedule);
-    await this.classroomsService.assertActive(dto.schedule.map((s) => s.classroom));
+    await this.assertClassroomsFit(dto.schedule, dto.capacity);
     await this.assertNoConflicts(dto.period, dto.teacher, dto.schedule);
 
-    const last = await this.model
-      .findOne({ subject: dto.subject, period: dto.period })
-      .sort({ number: -1 })
-      .select('number')
-      .exec();
-
-    const group = await this.model.create({ ...dto, number: (last?.number ?? 0) + 1, enrolled: 0 });
+    let group: GroupDocument | null = null;
+    for (let attempt = 0; attempt < 3 && !group; attempt++) {
+      const last = await this.model
+        .findOne({ subject: dto.subject, period: dto.period })
+        .sort({ number: -1 })
+        .select('number')
+        .exec();
+      try {
+        group = await this.model.create({ ...dto, number: (last?.number ?? 0) + 1, enrolled: 0 });
+      } catch (error) {
+        if (!(error instanceof Error) || !('code' in error) || error.code !== 11000 || attempt === 2) throw error;
+      }
+    }
+    if (!group) throw new ConflictException('No se pudo asignar un numero de grupo');
     await this.notifyAssigned(teacher.user, group, subject.name, period.code);
     return group;
   }
@@ -112,6 +121,10 @@ export class GroupsService {
   async update(id: string, dto: UpdateGroupDto): Promise<GroupDocument> {
     const group = await this.model.findById(id).exec();
     if (!group) throw new NotFoundException('Grupo no encontrado');
+    const period = await this.periodsService.findOne(String(group.period));
+    if (period.status === PeriodStatus.Closed) {
+      throw new BadRequestException('No se pueden modificar grupos de un periodo cerrado');
+    }
 
     if (dto.capacity !== undefined && dto.capacity < group.enrolled) {
       throw new BadRequestException(`El cupo no puede ser menor a los ${group.enrolled} estudiantes matriculados`);
@@ -122,7 +135,12 @@ export class GroupsService {
     const newTeacher = dto.teacher && dto.teacher !== String(group.teacher) ? await this.assertTeacherActive(dto.teacher) : null;
     if (dto.schedule) {
       this.assertValidSchedule(dto.schedule);
-      await this.classroomsService.assertActive(dto.schedule.map((s) => s.classroom));
+    }
+    if (dto.schedule || dto.capacity !== undefined) {
+      await this.assertClassroomsFit(schedule, dto.capacity ?? group.capacity);
+    }
+    if (dto.schedule) {
+      await this.assertNoStudentScheduleConflicts(group, schedule);
     }
     if (dto.teacher || dto.schedule) {
       await this.assertNoConflicts(String(group.period), teacherId, schedule, id);
@@ -145,6 +163,40 @@ export class GroupsService {
     const teacher = await this.teachersService.findOne(teacherId);
     if (!teacher.active) throw new BadRequestException('El docente esta inactivo');
     return teacher;
+  }
+
+  private async assertClassroomsFit(schedule: ScheduleSlotDto[], capacity: number): Promise<void> {
+    const classrooms = await this.classroomsService.assertActive(schedule.map((slot) => slot.classroom));
+    const tooSmall = classrooms.find((classroom) => classroom.capacity < capacity);
+    if (tooSmall) {
+      throw new BadRequestException(`El salon ${tooSmall.code} no tiene capacidad para ${capacity} estudiantes`);
+    }
+  }
+
+  private async assertNoStudentScheduleConflicts(group: GroupDocument, schedule: ScheduleSlotDto[]): Promise<void> {
+    const current = await this.enrollmentModel
+      .find({ group: group._id, status: EnrollmentStatus.Active })
+      .select('student')
+      .exec();
+    if (current.length === 0) return;
+
+    const others = await this.enrollmentModel
+      .find({
+        student: { $in: current.map((enrollment) => enrollment.student) },
+        period: group.period,
+        group: { $ne: group._id },
+        status: EnrollmentStatus.Active,
+      })
+      .select('group')
+      .exec();
+    if (others.length === 0) return;
+
+    const otherGroups = await this.model.find({ _id: { $in: others.map((enrollment) => enrollment.group) } }).exec();
+    for (const other of otherGroups) {
+      if (schedule.some((slot) => other.schedule.some((otherSlot) => overlaps(slot, otherSlot as unknown as ScheduleSlotDto)))) {
+        throw new ConflictException('El nuevo horario genera cruces para estudiantes matriculados');
+      }
+    }
   }
 
   private notifyAssigned(teacherUser: unknown, group: GroupDocument, subjectName: string, periodCode: string): Promise<void> {
