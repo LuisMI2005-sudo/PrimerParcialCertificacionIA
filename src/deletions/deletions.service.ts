@@ -50,6 +50,7 @@ export class DeletionsService {
       [this.enrollmentModel.countDocuments({ group: id }), 'matriculas'],
       [this.evaluationModel.countDocuments({ group: id }), 'evaluaciones'],
     ]);
+    await this.notificationModel.deleteMany({ relatedModel: 'Group', relatedId: id });
     await this.groupModel.deleteOne({ _id: id });
     return this.done('groups', id);
   }

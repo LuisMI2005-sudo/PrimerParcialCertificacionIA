@@ -4,6 +4,7 @@ import { FilterQuery, Model } from 'mongoose';
 import { Paginated, paginate } from '../common/dto/pagination-query.dto';
 import { textPattern } from '../common/dto/query-helpers';
 import { Role } from '../common/enums/role.enum';
+import { Enrollment, EnrollmentDocument } from '../enrollments/schemas/enrollment.schema';
 import { ProgramsService } from '../programs/programs.service';
 import { UsersService } from '../users/users.service';
 import { CreateStudentDto, StudentsQueryDto, UpdateStudentDto } from './dto/student.dto';
@@ -13,6 +14,7 @@ import { Student, StudentDocument } from './schemas/student.schema';
 export class StudentsService {
   constructor(
     @InjectModel(Student.name) private readonly model: Model<StudentDocument>,
+    @InjectModel(Enrollment.name) private readonly enrollmentModel: Model<EnrollmentDocument>,
     private readonly usersService: UsersService,
     private readonly programsService: ProgramsService,
   ) {}
@@ -74,6 +76,13 @@ export class StudentsService {
 
   async update(id: string, dto: UpdateStudentDto): Promise<StudentDocument> {
     if (dto.program) await this.programsService.findOne(dto.program);
+    if (dto.program) {
+      const student = await this.model.findById(id).select('program').exec();
+      if (!student) throw new NotFoundException('Estudiante no encontrado');
+      if (String(student.program) !== dto.program && await this.enrollmentModel.exists({ student: student._id })) {
+        throw new BadRequestException('No se puede cambiar el programa de un estudiante con matriculas registradas');
+      }
+    }
     const student = await this.model
       .findByIdAndUpdate(id, dto, { new: true, runValidators: true })
       .exec();

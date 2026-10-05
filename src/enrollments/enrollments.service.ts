@@ -16,7 +16,7 @@ import { Group, GroupDocument } from '../groups/schemas/group.schema';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/schemas/notification.schema';
 import { PeriodsService } from '../periods/periods.service';
-import { PeriodStatus } from '../periods/schemas/period.schema';
+import { Period, PeriodDocument, PeriodStatus } from '../periods/schemas/period.schema';
 import { StudentsService } from '../students/students.service';
 import { SubjectsService } from '../subjects/subjects.service';
 import { SubjectDocument } from '../subjects/schemas/subject.schema';
@@ -41,6 +41,7 @@ export class EnrollmentsService {
   constructor(
     @InjectModel(Enrollment.name) private readonly model: Model<EnrollmentDocument>,
     @InjectModel(Group.name) private readonly groupModel: Model<GroupDocument>,
+    @InjectModel(Period.name) private readonly periodModel: Model<PeriodDocument>,
     @InjectConnection() private readonly connection: Connection,
     private readonly studentsService: StudentsService,
     private readonly groupsService: GroupsService,
@@ -75,7 +76,7 @@ export class EnrollmentsService {
       `Quedaste matriculado en ${subject.name} (grupo ${group.number}).`,
       { model: 'Enrollment', id: created._id },
     );
-    // Verifica que la matricula haya quedado confirmada
+    // Una reserva confirmada siempre queda activa.
     if (created.status !== EnrollmentStatus.Active) {
       throw new BadRequestException('No se pudo confirmar la matricula');
     }
@@ -234,6 +235,14 @@ export class EnrollmentsService {
     let created!: EnrollmentDocument;
     try {
       await session.withTransaction(async () => {
+        // Toca el periodo dentro de la transaccion para serializar matriculas con su cierre.
+        const openPeriod = await this.periodModel.findOneAndUpdate(
+          { _id: group.period, status: PeriodStatus.Open },
+          { $inc: { __v: 1 } },
+          { session },
+        );
+        if (!openPeriod) throw new BadRequestException('El periodo ya no esta abierto');
+
         // El filtro garantiza que dos estudiantes no tomen el ultimo cupo a la vez
         const seat = await this.groupModel.findOneAndUpdate(
           { _id: group._id, active: true, $expr: { $lt: ['$enrolled', '$capacity'] } },
