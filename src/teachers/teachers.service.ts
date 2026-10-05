@@ -52,7 +52,7 @@ export class TeachersService {
   }
 
   async findOne(id: string): Promise<TeacherDocument> {
-    const teacher = await this.model.findById(id).populate('user', 'name email').populate('faculty', 'code name').exec();
+    const teacher = await this.model.findById(id).populate('user', 'name email').populate('faculty', 'code name').select('-passwordHash').exec();
     if (!teacher) throw new NotFoundException('Docente no encontrado');
     return teacher;
   }
@@ -78,7 +78,7 @@ export class TeachersService {
   }
 
   private async assertFaculty(facultyId: string): Promise<void> {
-    const faculty = await this.facultyModel.findById(facultyId).exec();
+    const faculty = await this.facultyModel.findById(facultyId).select('-passwordHash').exec();
     if (!faculty) throw new NotFoundException('Facultad no encontrada');
     if (!faculty.active) throw new BadRequestException('La facultad esta inactiva');
   }

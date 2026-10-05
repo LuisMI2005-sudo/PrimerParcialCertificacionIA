@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{baseUrl}}/api/programs"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+        "code": "ISIS",
+        "name": "Ingenieria de Sistemas",
+        "totalCredits": 160
+    }
+order: 1000

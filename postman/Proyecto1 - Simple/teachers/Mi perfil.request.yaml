@@ -1,0 +1,4 @@
+$kind: http-request
+url: "{{baseUrl}}/api/teachers/me"
+method: GET
+order: 3000

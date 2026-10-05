@@ -1,0 +1,18 @@
+$kind: http-request
+url: "{{baseUrl}}/api/subjects/:id"
+method: PATCH
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: ""
+body:
+  type: json
+  content: |-
+    {
+        "name": "Calculo Diferencial",
+        "credits": 4,
+        "semester": 1,
+        "prerequisites": [],
+        "active": true
+    }
+order: 4000

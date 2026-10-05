@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{baseUrl}}/api/periods"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+        "code": "2026-2",
+        "startDate": "2026-08-01",
+        "endDate": "2026-12-15"
+    }
+order: 1000

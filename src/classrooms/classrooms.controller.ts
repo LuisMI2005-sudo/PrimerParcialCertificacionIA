@@ -22,12 +22,14 @@ export class ClassroomsController {
   }
 
   @ApiOperation({ summary: 'Listar salones' })
+  @Roles(Role.Admin, Role.Docente, Role.Estudiante)
   @Get()
   findAll(@Query() query: ClassroomsQueryDto): Promise<Paginated<Classroom>> {
     return this.classroomsService.findAll(query);
   }
 
   @ApiOperation({ summary: 'Ver un salon por ID' })
+  @Roles(Role.Admin, Role.Docente, Role.Estudiante)
   @Get(':id')
   findOne(@Param('id', ParseObjectIdPipe) id: string): Promise<Classroom> {
     return this.classroomsService.findOne(id);

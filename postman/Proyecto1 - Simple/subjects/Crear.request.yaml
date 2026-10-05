@@ -1,0 +1,19 @@
+$kind: http-request
+url: "{{baseUrl}}/api/subjects"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+        "code": "MAT201",
+        "name": "Calculo 2",
+        "credits": 4,
+        "program": "PEGA_AQUI_EL_ID_DEL_PROGRAMA",
+        "semester": 2,
+        "prerequisites": [
+            "PEGA_AQUI_EL_ID_DE_LA_MATERIA_PRERREQUISITO"
+        ]
+    }
+order: 1000

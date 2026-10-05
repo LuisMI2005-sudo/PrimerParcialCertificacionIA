@@ -76,7 +76,7 @@ export class EnrollmentsService {
       { model: 'Enrollment', id: created._id },
     );
     // Verifica que la matricula haya quedado confirmada
-    if (created.status === EnrollmentStatus.Active) {
+    if (created.status !== EnrollmentStatus.Active) {
       throw new BadRequestException('No se pudo confirmar la matricula');
     }
     return created;

@@ -1,0 +1,4 @@
+$kind: collection
+description: Todos los endpoints. Cada Crear/Actualizar trae un body de ejemplo; reemplaza los textos PEGA_AQUI_... por IDs reales. Pon el Bearer token en la pestana Authorization de la coleccion y el ID en la Path Variable de cada request.
+variables:
+  baseUrl: http://localhost:3000

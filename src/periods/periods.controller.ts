@@ -22,6 +22,7 @@ export class PeriodsController {
   }
 
   @ApiOperation({ summary: 'Listar periodos (filtro: status)' })
+  @Roles(Role.Admin, Role.Docente, Role.Estudiante)
   @Get()
   findAll(@Query() query: PeriodsQueryDto): Promise<Paginated<Period>> {
     return this.periodsService.findAll(query);
@@ -35,6 +36,7 @@ export class PeriodsController {
   }
 
   @ApiOperation({ summary: 'Ver un periodo por ID' })
+  @Roles(Role.Admin, Role.Docente, Role.Estudiante)
   @Get(':id')
   findOne(@Param('id', ParseObjectIdPipe) id: string): Promise<Period> {
     return this.periodsService.findOne(id);

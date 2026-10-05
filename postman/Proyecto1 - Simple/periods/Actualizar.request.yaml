@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{baseUrl}}/api/periods/:id"
+method: PATCH
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: ""
+body:
+  type: json
+  content: |-
+    {
+        "status": "abierto"
+    }
+order: 4000

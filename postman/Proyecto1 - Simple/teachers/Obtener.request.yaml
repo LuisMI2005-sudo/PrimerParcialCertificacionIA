@@ -1,0 +1,6 @@
+$kind: http-request
+url: "{{baseUrl}}/api/teachers/:id"
+method: GET
+pathVariables:
+  id: ""
+order: 4000

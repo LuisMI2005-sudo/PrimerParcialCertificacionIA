@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{baseUrl}}/api/teachers"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+        "user": "PEGA_AQUI_EL_ID_DEL_USUARIO_DOCENTE",
+        "code": "DOC-001",
+        "department": "Ingenieria"
+    }
+order: 1000

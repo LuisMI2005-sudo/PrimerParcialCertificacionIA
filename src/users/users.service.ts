@@ -57,14 +57,14 @@ export class UsersService implements OnModuleInit {
     }
 
     const [data, total] = await Promise.all([
-      this.userModel.find(filter).sort({ createdAt: -1 }).skip(query.skip).limit(query.limit).exec(),
+      this.userModel.find(filter).sort({ createdAt: -1 }).skip(query.skip).limit(query.limit).select('-passwordHash').exec(),
       this.userModel.countDocuments(filter).exec(),
     ]);
     return paginate(data, total, query);
   }
 
   findById(id: string): Promise<UserDocument | null> {
-    return this.userModel.findById(id).exec();
+    return this.userModel.findById(id).select('-passwordHash').exec();
   }
 
   // IDs de los usuarios de un rol cuyo nombre o correo contiene el texto (para buscar estudiantes/docentes por nombre)
@@ -121,7 +121,7 @@ export class UsersService implements OnModuleInit {
   }
 
   async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<UserDocument> {
-    const user = await this.userModel.findById(userId).select('+passwordHash').exec();
+    const user = await this.userModel.findById(userId).select('+passwordHash').select('-passwordHash').exec();
     if (!user) throw new NotFoundException('Usuario no encontrado');
 
     if (!(await bcrypt.compare(currentPassword, user.passwordHash))) {
@@ -132,11 +132,11 @@ export class UsersService implements OnModuleInit {
     }
     user.passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
     user.passwordChangedAt = new Date();
-    return user;
+    return user.save();
   }
 
   async resetPassword(id: string, newPassword: string): Promise<void> {
-    const user = await this.userModel.findById(id).select('+passwordHash').exec();
+    const user = await this.userModel.findById(id).select('+passwordHash').select('-passwordHash').exec();
     if (!user) throw new NotFoundException('Usuario no encontrado');
     await this.setPassword(user, newPassword);
   }

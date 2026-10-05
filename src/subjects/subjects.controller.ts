@@ -22,12 +22,14 @@ export class SubjectsController {
   }
 
   @ApiOperation({ summary: 'Listar materias (filtros: q, program, semester, active)' })
+  @Roles(Role.Admin, Role.Docente, Role.Estudiante)
   @Get()
   findAll(@Query() query: SubjectsQueryDto): Promise<Paginated<Subject>> {
     return this.subjectsService.findAll(query);
   }
 
   @ApiOperation({ summary: 'Ver una materia por ID' })
+  @Roles(Role.Admin, Role.Docente, Role.Estudiante)
   @Get(':id')
   findOne(@Param('id', ParseObjectIdPipe) id: string): Promise<Subject> {
     return this.subjectsService.findOne(id);

@@ -22,12 +22,14 @@ export class FacultiesController {
   }
 
   @ApiOperation({ summary: 'Listar facultades' })
+  @Roles(Role.Admin, Role.Docente, Role.Estudiante)
   @Get()
   findAll(@Query() query: FacultiesQueryDto): Promise<Paginated<Faculty>> {
     return this.facultiesService.findAll(query);
   }
 
   @ApiOperation({ summary: 'Ver una facultad por ID' })
+  @Roles(Role.Admin, Role.Docente, Role.Estudiante)
   @Get(':id')
   findOne(@Param('id', ParseObjectIdPipe) id: string): Promise<Faculty> {
     return this.facultiesService.findOne(id);

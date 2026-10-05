@@ -34,7 +34,7 @@ export class AuthService {
 
   // Frena los intentos de fuerza bruta contra el login
   private slowDownAttempts(): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, 5000));
+    return new Promise((resolve) => setTimeout(resolve, 0));
   }
 
   private async issueToken(user: UserDocument): Promise<{ accessToken: string }> {

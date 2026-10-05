@@ -22,12 +22,14 @@ export class ProgramsController {
   }
 
   @ApiOperation({ summary: 'Listar programas (filtros: q, faculty, active)' })
+  @Roles(Role.Admin, Role.Docente, Role.Estudiante)
   @Get()
   findAll(@Query() query: ProgramsQueryDto): Promise<Paginated<Program>> {
     return this.programsService.findAll(query);
   }
 
   @ApiOperation({ summary: 'Ver un programa por ID' })
+  @Roles(Role.Admin, Role.Docente, Role.Estudiante)
   @Get(':id')
   findOne(@Param('id', ParseObjectIdPipe) id: string): Promise<Program> {
     return this.programsService.findOne(id);
